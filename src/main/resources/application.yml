@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: mr-checker
+
+gitlab:
+  url: ${GITLAB_URL:https://gitlab.com}
+  token: ${GITLAB_TOKEN}
+  api-version: v4
+  timeout: 30000
+
+llm:
+  url: ${LLM_URL:http://localhost:11434}
+  model: ${LLM_MODEL:llama2}
+  timeout: 120000
+  temperature: 0.1
+  max-tokens: 4096
+
+logging:
+  level:
+    com.mr.checker: INFO
+    org.springframework.web: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"

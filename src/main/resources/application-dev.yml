@@ -1,0 +1,23 @@
+spring:
+  profiles:
+    active: dev
+
+gitlab:
+  url: ${GITLAB_URL:http://localhost:8081}  # Mock GitLab server for development
+  token: ${GITLAB_TOKEN:test-token-123}
+  timeout: 10000
+
+llm:
+  url: ${LLM_URL:http://localhost:11434}
+  model: ${LLM_MODEL:llama2}
+  timeout: 60000
+  temperature: 0.1
+  max-tokens: 2048
+
+logging:
+  level:
+    com.mr.checker: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.web.client: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
