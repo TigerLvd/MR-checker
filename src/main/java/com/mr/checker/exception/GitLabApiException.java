@@ -10,7 +10,7 @@ import java.time.Instant;
  * Содержит информацию о HTTP статусе, коде ошибки и времени возникновения.
  */
 @Getter
-public class GitLabApiException extends RuntimeException {
+public class GitLabApiException extends MRCheckException {
 
     private final HttpStatus httpStatus;
     private final String errorCode;

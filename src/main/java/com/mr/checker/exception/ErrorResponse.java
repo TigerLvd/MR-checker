@@ -58,9 +58,17 @@ public class ErrorResponse {
      * @param path      путь запроса, где произошла ошибка
      */
     public ErrorResponse(Exception exception, String path) {
-        this.message = exception.getMessage() != null ? exception.getMessage() : "Internal server error";
-        this.errorCode = "INTERNAL_ERROR";
-        this.status = HttpStatus.INTERNAL_SERVER_ERROR.value();
+        if (exception instanceof MRCheckException mrCheckException) {
+            // Если это кастомное исключение, используем его данные
+            this.message = mrCheckException.getMessage();
+            this.errorCode = mrCheckException.getErrorCode();
+            this.status = mrCheckException.getHttpStatus().value();
+        } else {
+            // Для общих исключений
+            this.message = exception.getMessage() != null ? exception.getMessage() : "Internal server error";
+            this.errorCode = "INTERNAL_ERROR";
+            this.status = HttpStatus.INTERNAL_SERVER_ERROR.value();
+        }
         this.path = path;
         this.timestamp = Instant.now();
     }
