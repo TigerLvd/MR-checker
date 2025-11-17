@@ -4,10 +4,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.support.WebExchangeBindException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.server.ServerWebExchange;
 
 import java.util.Arrays;
 
@@ -29,29 +29,30 @@ public class GlobalExceptionHandler {
      * Обрабатывает исключения GitLabApiException.
      *
      * @param exception исключение GitLab API
-     * @param request   веб-запрос
+     * @param exchange веб-обмен
      * @return ResponseEntity с ErrorResponse
      */
     @ExceptionHandler(GitLabApiException.class)
     public ResponseEntity<ErrorResponse> handleGitLabApiException(
             GitLabApiException exception,
-            WebRequest request) {
+            ServerWebExchange exchange) {
 
+        String requestPath = getRequestPath(exchange);
         if (isDevelopmentProfile()) {
-            log.error("GitLab API error at {}: {}", getRequestPath(request), exception.getMessage(), exception);
+            log.error("GitLab API error at {}: {}", requestPath, exception.getMessage(), exception);
         } else {
             log.error("GitLab API error: {} (status: {}, path: {})",
-                     exception.getMessage(), exception.getHttpStatus(), getRequestPath(request));
+                     exception.getMessage(), exception.getHttpStatus(), requestPath);
         }
 
         ErrorResponse errorResponse = new ErrorResponse(
             exception.getMessage(),
             exception.getErrorCode(),
             exception.getHttpStatus(),
-            getRequestPath(request)
+            requestPath
         );
 
-        return new ResponseEntity<>(errorResponse, (org.springframework.http.HttpStatusCode) exception.getHttpStatus());
+        return new ResponseEntity<>(errorResponse, exception.getHttpStatus());
     }
 
     /**
@@ -64,23 +65,24 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(LLMApiException.class)
     public ResponseEntity<ErrorResponse> handleLLMApiException(
             LLMApiException exception,
-            WebRequest request) {
+            ServerWebExchange exchange) {
 
+        String requestPath = getRequestPath(exchange);
         if (isDevelopmentProfile()) {
-            log.error("LLM API error at {}: {}", getRequestPath(request), exception.getMessage(), exception);
+            log.error("LLM API error at {}: {}", requestPath, exception.getMessage(), exception);
         } else {
             log.error("LLM API error: {} (status: {}, path: {})",
-                     exception.getMessage(), exception.getHttpStatus(), getRequestPath(request));
+                     exception.getMessage(), exception.getHttpStatus(), requestPath);
         }
 
         ErrorResponse errorResponse = new ErrorResponse(
             exception.getMessage(),
             exception.getErrorCode(),
             exception.getHttpStatus(),
-            getRequestPath(request)
+            requestPath
         );
 
-        return new ResponseEntity<>(errorResponse, (org.springframework.http.HttpStatusCode) exception.getHttpStatus());
+        return new ResponseEntity<>(errorResponse, exception.getHttpStatus());
     }
 
     /**
@@ -93,38 +95,40 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MRCheckException.class)
     public ResponseEntity<ErrorResponse> handleMRCheckException(
             MRCheckException exception,
-            WebRequest request) {
+            ServerWebExchange exchange) {
 
+        String requestPath = getRequestPath(exchange);
         if (isDevelopmentProfile()) {
-            log.error("MR check error at {}: {}", getRequestPath(request), exception.getMessage(), exception);
+            log.error("MR check error at {}: {}", requestPath, exception.getMessage(), exception);
         } else {
             log.error("MR check error: {} (status: {}, path: {})",
-                     exception.getMessage(), exception.getHttpStatus(), getRequestPath(request));
+                     exception.getMessage(), exception.getHttpStatus(), requestPath);
         }
 
         ErrorResponse errorResponse = new ErrorResponse(
             exception.getMessage(),
             exception.getErrorCode(),
             exception.getHttpStatus(),
-            getRequestPath(request)
+            requestPath
         );
 
-        return new ResponseEntity<>(errorResponse, (org.springframework.http.HttpStatusCode) exception.getHttpStatus());
+        return new ResponseEntity<>(errorResponse, exception.getHttpStatus());
     }
 
     /**
-     * Обрабатывает исключения валидации MethodArgumentNotValidException.
+     * Обрабатывает исключения валидации WebExchangeBindException (WebFlux).
      *
      * @param exception исключение валидации
-     * @param request   веб-запрос
+     * @param exchange  веб-обмен
      * @return ResponseEntity с ErrorResponse
      */
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(
-            MethodArgumentNotValidException exception,
-            WebRequest request) {
+    @ExceptionHandler(WebExchangeBindException.class)
+    public ResponseEntity<ErrorResponse> handleWebExchangeBindException(
+            WebExchangeBindException exception,
+            ServerWebExchange exchange) {
 
-        log.warn("Validation error at {}: {}", getRequestPath(request), exception.getMessage());
+        String requestPath = getRequestPath(exchange);
+        log.warn("Validation error at {}: {}", requestPath, exception.getMessage());
 
         StringBuilder messageBuilder = new StringBuilder("Validation failed: ");
         exception.getBindingResult().getFieldErrors().forEach(error ->
@@ -143,7 +147,7 @@ public class GlobalExceptionHandler {
             message,
             "VALIDATION_ERROR",
             HttpStatus.BAD_REQUEST,
-            getRequestPath(request)
+            requestPath
         );
 
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
@@ -159,17 +163,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(
             Exception exception,
-            WebRequest request) {
+            ServerWebExchange exchange) {
 
+        String requestPath = getRequestPath(exchange);
         if (isDevelopmentProfile()) {
-            log.error("Unexpected error at {}: {}", getRequestPath(request), exception.getMessage(), exception);
+            log.error("Unexpected error at {}: {}", requestPath, exception.getMessage(), exception);
         } else {
-            log.error("Unexpected error: {} (path: {})", exception.getMessage(), getRequestPath(request));
+            log.error("Unexpected error: {} (path: {})", exception.getMessage(), requestPath);
         }
 
         ErrorResponse errorResponse = new ErrorResponse(
             exception,
-            getRequestPath(request)
+            requestPath
         );
 
         return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -187,16 +192,14 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Извлекает путь запроса из WebRequest.
+     * Извлекает путь запроса из ServerWebExchange.
      *
-     * @param request веб-запрос
+     * @param exchange веб-обмен
      * @return путь запроса или "unknown" если не удалось определить
      */
-    private String getRequestPath(WebRequest request) {
+    private String getRequestPath(ServerWebExchange exchange) {
         try {
-            return ((org.springframework.web.context.request.ServletWebRequest) request)
-                .getRequest()
-                .getRequestURI();
+            return exchange.getRequest().getPath().value();
         } catch (Exception e) {
             log.warn("Could not extract request path", e);
             return "unknown";

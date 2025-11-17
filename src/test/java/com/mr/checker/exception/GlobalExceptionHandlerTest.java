@@ -4,12 +4,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
-import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.support.WebExchangeBindException;
 import org.springframework.web.context.request.ServletWebRequest;
-import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.adapter.DefaultServerWebExchange;
+import org.springframework.mock.http.server.reactive.MockServerHttpResponse;
+import org.springframework.mock.web.server.MockServerWebExchange;
 
 import java.util.List;
 
@@ -23,6 +27,10 @@ class GlobalExceptionHandlerTest {
     private final Environment environment = mock(Environment.class);
     private final GlobalExceptionHandler handler = new GlobalExceptionHandler(environment);
 
+    private ServerWebExchange createMockExchange(String path) {
+        return MockServerWebExchange.from(MockServerHttpRequest.get(path));
+    }
+
     @Test
     void handleGitLabApiException_shouldReturnCorrectResponse() {
         // Given
@@ -30,10 +38,10 @@ class GlobalExceptionHandlerTest {
         when(environment.getDefaultProfiles()).thenReturn(new String[]{"default"});
 
         GitLabApiException exception = new GitLabApiException("GitLab API unavailable", HttpStatus.SERVICE_UNAVAILABLE);
-        WebRequest request = new ServletWebRequest(new MockHttpServletRequest("GET", "/api/test"));
+        ServerWebExchange exchange = createMockExchange("/api/test");
 
         // When
-        ResponseEntity<ErrorResponse> response = handler.handleGitLabApiException(exception, request);
+        ResponseEntity<ErrorResponse> response = handler.handleGitLabApiException(exception, exchange);
 
         // Then
         assertThat(response).isNotNull();
@@ -53,10 +61,10 @@ class GlobalExceptionHandlerTest {
         when(environment.getDefaultProfiles()).thenReturn(new String[]{"default"});
 
         GitLabApiException exception = new GitLabApiException("Generic GitLab error");
-        WebRequest request = new ServletWebRequest(new MockHttpServletRequest("POST", "/api/check-mr"));
+        ServerWebExchange exchange = createMockExchange("/api/check-mr");
 
         // When
-        ResponseEntity<ErrorResponse> response = handler.handleGitLabApiException(exception, request);
+        ResponseEntity<ErrorResponse> response = handler.handleGitLabApiException(exception, exchange);
 
         // Then
         assertThat(response).isNotNull();
@@ -76,10 +84,10 @@ class GlobalExceptionHandlerTest {
         when(environment.getDefaultProfiles()).thenReturn(new String[]{"default"});
 
         LLMApiException exception = new LLMApiException("LLM API timeout", HttpStatus.REQUEST_TIMEOUT);
-        WebRequest request = new ServletWebRequest(new MockHttpServletRequest("POST", "/api/check-mr"));
+        ServerWebExchange exchange = createMockExchange("/api/check-mr");
 
         // When
-        ResponseEntity<ErrorResponse> response = handler.handleLLMApiException(exception, request);
+        ResponseEntity<ErrorResponse> response = handler.handleLLMApiException(exception, exchange);
 
         // Then
         assertThat(response).isNotNull();
@@ -99,10 +107,10 @@ class GlobalExceptionHandlerTest {
         when(environment.getDefaultProfiles()).thenReturn(new String[]{"default"});
 
         MRCheckException exception = new MRCheckException("Validation failed", HttpStatus.BAD_REQUEST);
-        WebRequest request = new ServletWebRequest(new MockHttpServletRequest("POST", "/api/check-mr"));
+        ServerWebExchange exchange = createMockExchange("/api/check-mr");
 
         // When
-        ResponseEntity<ErrorResponse> response = handler.handleMRCheckException(exception, request);
+        ResponseEntity<ErrorResponse> response = handler.handleMRCheckException(exception, exchange);
 
         // Then
         assertThat(response).isNotNull();
@@ -116,22 +124,22 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void handleMethodArgumentNotValidException_shouldReturnBadRequestWithValidationErrors() {
+    void handleWebExchangeBindException_shouldReturnBadRequestWithValidationErrors() {
         // Given
         when(environment.getActiveProfiles()).thenReturn(new String[]{"test"});
         when(environment.getDefaultProfiles()).thenReturn(new String[]{"default"});
 
-        MethodArgumentNotValidException exception = mock(MethodArgumentNotValidException.class);
+        WebExchangeBindException exception = mock(WebExchangeBindException.class);
         BindingResult bindingResult = mock(BindingResult.class);
 
         FieldError fieldError = new FieldError("checkMRRequest", "projectId", "Project ID cannot be null");
         when(bindingResult.getFieldErrors()).thenReturn(List.of(fieldError));
         when(exception.getBindingResult()).thenReturn(bindingResult);
 
-        WebRequest request = new ServletWebRequest(new MockHttpServletRequest("POST", "/api/check-mr"));
+        ServerWebExchange exchange = createMockExchange("/api/check-mr");
 
         // When
-        ResponseEntity<ErrorResponse> response = handler.handleMethodArgumentNotValidException(exception, request);
+        ResponseEntity<ErrorResponse> response = handler.handleWebExchangeBindException(exception, exchange);
 
         // Then
         assertThat(response).isNotNull();
@@ -151,10 +159,10 @@ class GlobalExceptionHandlerTest {
         when(environment.getDefaultProfiles()).thenReturn(new String[]{"default"});
 
         RuntimeException exception = new RuntimeException("Unexpected database error");
-        WebRequest request = new ServletWebRequest(new MockHttpServletRequest("POST", "/api/check-mr"));
+        ServerWebExchange exchange = createMockExchange("/api/check-mr");
 
         // When
-        ResponseEntity<ErrorResponse> response = handler.handleGenericException(exception, request);
+        ResponseEntity<ErrorResponse> response = handler.handleGenericException(exception, exchange);
 
         // Then
         assertThat(response).isNotNull();
@@ -174,10 +182,10 @@ class GlobalExceptionHandlerTest {
         when(environment.getDefaultProfiles()).thenReturn(new String[]{"default"});
 
         RuntimeException exception = new RuntimeException((String) null);
-        WebRequest request = new ServletWebRequest(new MockHttpServletRequest("GET", "/api/health"));
+        ServerWebExchange exchange = createMockExchange("/api/health");
 
         // When
-        ResponseEntity<ErrorResponse> response = handler.handleGenericException(exception, request);
+        ResponseEntity<ErrorResponse> response = handler.handleGenericException(exception, exchange);
 
         // Then
         assertThat(response).isNotNull();

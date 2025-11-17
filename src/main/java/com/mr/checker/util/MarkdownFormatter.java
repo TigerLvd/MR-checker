@@ -3,6 +3,7 @@ package com.mr.checker.util;
 import com.mr.checker.model.AnalysisResult;
 import com.mr.checker.model.response.CategoryResult;
 import com.mr.checker.model.response.Issue;
+import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -11,6 +12,7 @@ import java.util.List;
 /**
  * Утилита для форматирования результатов анализа в Markdown формат для комментариев GitLab.
  */
+@Component
 public class MarkdownFormatter {
 
     /**
